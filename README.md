@@ -1,179 +1,226 @@
 # Otimizador de Bolões Lotofácil
 
-Sistema de otimização evolutiva para geração de bolões da Lotofácil com avaliação estatística via Monte Carlo.
+<p align="center">
+  Plataforma de otimização evolutiva para geração, simulação e análise visual de bolões da Lotofácil.
+</p>
 
-## Tecnologias
+<p align="center">
+  <img src="https://img.shields.io/badge/status-mvp%20visual-1f8f5f" alt="status" />
+  <img src="https://img.shields.io/badge/backend-FastAPI-009688" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/frontend-React%20%2B%20Three.js-1e3a8a" alt="React Three" />
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776ab" alt="Python" />
+  <img src="https://img.shields.io/badge/license-MIT-informational" alt="license" />
+</p>
 
-- **Backend**: Python 3.11+, FastAPI, NumPy, Numba
-- **Banco de Dados**: PostgreSQL, Redis
-- **Frontend**: React, TypeScript, Recharts
-- **Containerização**: Docker, Docker Compose
+## Sobre o projeto
 
-## Estrutura do Projeto
+O **Otimizador de Bolões Lotofácil** é um sistema que combina:
 
+- ingestão e análise de concursos históricos;
+- engenharia de features estatísticas;
+- geração estrutural de jogos;
+- simulação Monte Carlo;
+- algoritmo genético para evolução de estratégias;
+- persistência e reprodutibilidade;
+- frontend visual para acompanhar a evolução dos indivíduos.
+
+O objetivo é permitir que o usuário não apenas execute otimizações, mas também **entenda visualmente como a população evolui**, quão perto está do alvo desejado e como o melhor DNA se comporta ao longo das gerações.
+
+## Status
+
+### Fases concluídas
+
+- [x] Fase 1: Base de dados e ingestão
+- [x] Fase 2: Feature engineering
+- [x] Fase 3: Motor de geração estrutural
+- [x] Fase 4: Simulador Monte Carlo
+- [x] Fase 5: Algoritmo genético
+- [x] Fase 6: Persistência e reprodutibilidade
+- [x] Fase 7: Frontend MVP visual
+
+### Entregue no MVP atual
+
+- API FastAPI com rotas de concursos, features, jogos, simulação, otimização e persistência
+- rastreamento de experimentos em execução
+- snapshots visuais por geração
+- endpoint dedicado para visualização evolutiva
+- frontend React + TypeScript + Vite
+- visualização 3D dos indivíduos com alvo evolutivo
+- timeline de gerações
+- gráfico de convergência
+- resumo do melhor DNA
+
+## Arquitetura
+
+```text
+gerador_bolao/
+├── backend/                  # API, domínio e motor evolutivo
+│   ├── api/routes/           # Endpoints REST
+│   ├── core/                 # Features, geração, simulação, GA e persistência
+│   ├── database/             # Conexão e repositórios
+│   └── models/               # Modelos Pydantic
+├── frontend/                 # Dashboard React + cena 3D
+├── scripts/                  # Utilitários e demos
+├── tests/                    # Testes automatizados
+└── PHASE7_FRONTEND_IMPLEMENTATION_PLAN.md
 ```
-lotofacil-optimizer/
-├── backend/          # API e motor de otimização
-├── frontend/         # Interface web
-├── tests/            # Testes automatizados
-└── docker/           # Configurações Docker
-```
 
-## Instalação Rápida
+## Stack
+
+### Backend
+
+- Python 3.11+
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Redis
+- NumPy / SciPy / Pandas / Numba
+
+### Frontend
+
+- React
+- TypeScript
+- Vite
+- Recharts
+- Three.js
+- React Three Fiber
+- Drei
+
+## Visualização evolutiva
+
+O frontend introduz uma leitura visual do algoritmo genético:
+
+- cada indivíduo é representado como um elemento 3D;
+- a posição no espaço reflete métricas da solução;
+- cor, escala e opacidade indicam qualidade e proximidade do objetivo;
+- o alvo visual representa o perfil desejado de alto fitness, alto ROI e risco reduzido;
+- a timeline permite navegar pela evolução geração por geração.
+
+### Mapeamento visual do MVP
+
+- `x`: fitness normalizado
+- `y`: ROI normalizado
+- `z`: risco invertido
+- cor: distância até o objetivo
+- escala: destaque para indivíduos elite
+
+## Endpoints principais
+
+### Otimização
+
+- `POST /optimize/start`
+- `GET /optimize/status/{experiment_id}`
+- `GET /optimize/result/{experiment_id}`
+- `GET /optimize/visual/{experiment_id}`
+- `GET /optimize/list`
+- `DELETE /optimize/cancel/{experiment_id}`
+- `POST /optimize/quick`
+
+### Outros módulos
+
+- `/contests/*`
+- `/features/*`
+- `/games/*`
+- `/simulate/*`
+- `/persistence/*`
+
+Documentação interativa:
+
+- [http://localhost:8000/docs](http://localhost:8000/docs)
+
+## Como rodar localmente
+
+### 1. Suba a infraestrutura
 
 ```bash
-# Subir infraestrutura
 docker-compose up -d
+```
 
-# Instalar dependências backend
+### 2. Instale o backend
+
+```bash
 cd backend
 pip install -r requirements.txt
+```
 
-# Instalar dependências frontend
-cd frontend
+### 3. Instale o frontend
+
+```bash
+cd ../frontend
 npm install
 ```
 
-## Status do Projeto
-
-- [x] Planejamento e arquitetura
-- [x] Fase 1: Base de dados e ingestão ✅
-- [x] Fase 2: Feature engineering ✅
-- [x] Fase 3: Motor de geração ✅
-- [x] Fase 4: Simulador Monte Carlo ✅
-- [x] Fase 5: Algoritmo genético ✅
-- [x] Fase 6: Persistência ✅
-- [ ] Fase 7: API e Frontend MVP 🔄
-
-**Progresso**: 86% (6/7 fases concluídas)
-
-## Funcionalidades Implementadas
-
-### ✅ Fase 1: Base de Dados
-- Schema PostgreSQL completo
-- Modelos Pydantic (DNA, Contest, Experiment)
-- Importador de dados históricos
-- API REST base com FastAPI
-- Docker Compose (PostgreSQL + Redis)
-
-### ✅ Fase 2: Feature Engineering
-- Cálculo de frequências históricas
-- Análise de atrasos por número
-- Detecção de repetições
-- Matriz de afinidade combinatória
-- Sistema de cache Redis
-
-### ✅ Fase 3: Motor de Geração
-- Seleção gulosa de pool
-- Amostragem Softmax com temperatura
-- Geração estrutural de jogos (15, 16, 17)
-- Otimização de diversidade
-- Geração de bolões completos
-
-### ✅ Fase 4: Simulador Monte Carlo
-- Gerador de sorteios pseudoaleatórios
-- Common Random Numbers (CRN)
-- Avaliação de premiações
-- Cálculo de ROI e risco
-- Simulação paralelizada
-
-### ✅ Fase 6: Persistência e Reprodutibilidade
-- Sistema completo de checkpoints
-- Versionamento de seeds
-- Logs estruturados (JSONL)
-- Motor de replay e validação
-- Exportação em múltiplos formatos (JSON, CSV, TXT)
-- Reprodutibilidade 100% garantida
-
-## API REST
-
-O sistema expõe 53 endpoints REST:
-
-- **7 endpoints** `/contests/*` - Gerenciamento de concursos
-- **9 endpoints** `/features/*` - Cálculo de features
-- **5 endpoints** `/games/*` - Geração de jogos
-- **7 endpoints** `/simulate/*` - Simulação Monte Carlo
-- **7 endpoints** `/optimize/*` - Otimização evolutiva
-- **20 endpoints** `/persistence/*` - Persistência e reprodutibilidade
-
-Documentação interativa: `http://localhost:8000/docs`
-
-## Uso Rápido
+### 4. Importe os dados históricos
 
 ```bash
-# 1. Subir infraestrutura
-docker-compose up -d
-
-# 2. Importar dados históricos
+cd ..
 python scripts/import_historical_data.py
+```
 
-# 3. Iniciar API
+### 5. Inicie a API
+
+```bash
 python -m backend.main
-
-# 4. Executar otimização rápida
-curl -X POST http://localhost:8000/optimize/quick \
-  -H "Content-Type: application/json" \
-  -d '{"budget": 50.0}'
 ```
 
-## Scripts de Demonstração
+### 6. Inicie o frontend
 
 ```bash
-# Demo de features
-python scripts/demo_features.py
-
-# Demo de geração de jogos
-python scripts/demo_game_generation.py
-
-# Demo de algoritmo genético
-python scripts/demo_genetic_algorithm.py
-
-# Demo de persistência
-python scripts/demo_persistence.py
+cd frontend
+npm run dev
 ```
 
-## Documentação
+### Endereços locais
 
-- [Guia de Implementação MCP](mcp_guia_implementacao_otimizador_lotofacil.md) - Guia técnico completo
-- [Roadmap](ROADMAP.md) - Planejamento detalhado das 7 fases
-- [Status](STATUS.md) - Status atual do projeto
-- [Instalação](INSTALL.md) - Guia de instalação detalhado
-- [Quickstart](QUICKSTART.md) - Início rápido
-- [Phase 1 Complete](PHASE1_COMPLETE.md) - Documentação Fase 1
-- [Phase 2 Complete](PHASE2_COMPLETE.md) - Documentação Fase 2
-- [Phase 5 Complete](PHASE5_COMPLETE.md) - Documentação Fase 5
-- [Phase 6 Complete](PHASE6_COMPLETE.md) - Documentação Fase 6
+- API: [http://localhost:8000](http://localhost:8000)
+- Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Frontend: [http://localhost:5173](http://localhost:5173)
 
-## Testes
+## Fluxo de uso
+
+1. O usuário inicia um experimento pelo frontend.
+2. O frontend chama `POST /optimize/start`.
+3. O progresso é acompanhado por polling com `GET /optimize/status/{id}`.
+4. A timeline visual é consumida em `GET /optimize/visual/{id}`.
+5. Ao final, o frontend busca `GET /optimize/result/{id}`.
+6. O dashboard exibe convergência, melhor DNA e evolução da população.
+
+## Desenvolvimento
+
+### Validar backend
 
 ```bash
-# Executar todos os testes
 pytest tests/ -v
-
-# Testes específicos
-pytest tests/test_genetic_algorithm.py -v
-pytest tests/test_checkpoint_manager.py -v
-pytest tests/test_seed_manager.py -v
-
-# Com cobertura
-pytest tests/ --cov=backend --cov-report=html
 ```
 
-## Estatísticas do Projeto
+### Build do frontend
 
-- **Linhas de código**: ~10.000
-- **Testes**: 210+
-- **Endpoints API**: 53
-- **Classes implementadas**: 30+
-- **Cobertura de testes**: Excelente
-- **Fases concluídas**: 6 de 7 (86%)
+```bash
+cd frontend
+npm run build
+```
 
-## Próximos Passos
+## Documentação do projeto
 
-### Fase 7: Frontend MVP (Última Fase!)
-- Setup React + TypeScript + Vite
-- Dashboard de experimentos
-- Visualização de convergência (Recharts)
-- Configuração de campanhas
-- Exportação de bolões via UI
-- Monitoramento em tempo real
+- [PHASE7_FRONTEND_IMPLEMENTATION_PLAN.md](PHASE7_FRONTEND_IMPLEMENTATION_PLAN.md)
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+- [ROADMAP.md](ROADMAP.md)
+- [STATUS.md](STATUS.md)
+- [INSTALL.md](INSTALL.md)
+- [QUICKSTART.md](QUICKSTART.md)
+- [PHASE5_COMPLETE.md](PHASE5_COMPLETE.md)
+- [PHASE6_COMPLETE.md](PHASE6_COMPLETE.md)
+
+## Próximas melhorias
+
+- WebSocket para progresso em tempo real
+- persistência dos snapshots visuais em banco/Redis
+- comparação visual entre experimentos
+- exportação visual dos resultados
+- redução do bundle do frontend com code splitting
+
+## Observações
+
+- o MVP atual usa polling, não WebSocket;
+- os experimentos em execução ficam em memória no backend;
+- a camada visual já está funcional e pronta para evoluções.

@@ -3,7 +3,7 @@ Algoritmo Genético para Lotofácil
 Evolui estratégias de geração de bolões
 """
 import numpy as np
-from typing import List, Optional, Callable, Tuple
+from typing import List, Optional, Callable, Tuple, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 from backend.models.dna import DNA, DNAGene
@@ -43,6 +43,68 @@ class GenerationStats:
 
 
 @dataclass
+class IndividualVisualSnapshot:
+    """Representação visual de um indivíduo em uma geração"""
+    id: str
+    generation: int
+    fitness: float
+    roi: float
+    risk: float
+    distance_to_goal: float
+    x: float
+    y: float
+    z: float
+    scale: float
+    opacity: float
+    color: str
+    is_elite: bool
+    genes: Dict[str, Any]
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "generation": self.generation,
+            "fitness": self.fitness,
+            "roi": self.roi,
+            "risk": self.risk,
+            "distance_to_goal": self.distance_to_goal,
+            "x": self.x,
+            "y": self.y,
+            "z": self.z,
+            "scale": self.scale,
+            "opacity": self.opacity,
+            "color": self.color,
+            "is_elite": self.is_elite,
+            "genes": self.genes
+        }
+
+
+@dataclass
+class GenerationVisualSnapshot:
+    """Snapshot visual completo de uma geração"""
+    generation: int
+    individuals: List[IndividualVisualSnapshot]
+    objective: Dict[str, Any]
+    population_size: int
+    best_fitness: float
+    avg_fitness: float
+    avg_distance_to_goal: float
+    centroid: Dict[str, float]
+
+    def to_dict(self) -> dict:
+        return {
+            "generation": self.generation,
+            "individuals": [individual.to_dict() for individual in self.individuals],
+            "objective": self.objective,
+            "population_size": self.population_size,
+            "best_fitness": self.best_fitness,
+            "avg_fitness": self.avg_fitness,
+            "avg_distance_to_goal": self.avg_distance_to_goal,
+            "centroid": self.centroid
+        }
+
+
+@dataclass
 class EvolutionResult:
     """Resultado completo da evolução"""
     best_dna: DNA
@@ -51,6 +113,8 @@ class EvolutionResult:
     total_time: float
     convergence_generation: Optional[int]
     generation_stats: List[GenerationStats]
+    visual_goal: Dict[str, Any]
+    visual_history: List[GenerationVisualSnapshot]
     
     def to_dict(self) -> dict:
         return {
@@ -59,7 +123,9 @@ class EvolutionResult:
             "generations_run": self.generations_run,
             "total_time": self.total_time,
             "convergence_generation": self.convergence_generation,
-            "generation_stats": [g.to_dict() for g in self.generation_stats]
+            "generation_stats": [g.to_dict() for g in self.generation_stats],
+            "visual_goal": self.visual_goal,
+            "visual_history": [snapshot.to_dict() for snapshot in self.visual_history]
         }
 
 
@@ -138,6 +204,143 @@ class Population:
                 count += 1
         
         return total_distance / count if count > 0 else 0.0
+
+    @staticmethod
+    def _normalize(values: List[float]) -> List[float]:
+        """Normaliza lista para intervalo 0..1"""
+        if not values:
+            return []
+
+        min_value = min(values)
+        max_value = max(values)
+
+        if np.isclose(max_value, min_value):
+            return [0.5 for _ in values]
+
+        return [
+            float((value - min_value) / (max_value - min_value))
+            for value in values
+        ]
+
+    @staticmethod
+    def _blend_color(ratio: float) -> str:
+        """Gera cor contínua do vermelho ao verde"""
+        clamped = max(0.0, min(1.0, ratio))
+        red = int(255 * (1.0 - clamped))
+        green = int(150 + 105 * clamped)
+        blue = int(90 + 90 * (1.0 - clamped))
+        return f"#{red:02x}{green:02x}{blue:02x}"
+
+    @staticmethod
+    def get_visual_goal() -> Dict[str, Any]:
+        """Objetivo visual base da população"""
+        return {
+            "label": "Alvo Evolutivo",
+            "description": "Maximizar fitness e ROI enquanto reduz risco.",
+            "target": {
+                "x": 8.5,
+                "y": 5.0,
+                "z": 5.5
+            },
+            "metrics": {
+                "fitness": 1.0,
+                "roi": 1.0,
+                "risk_inverse": 1.0
+            }
+        }
+
+    def to_visual_snapshot(self, generation: int) -> GenerationVisualSnapshot:
+        """Converte população atual em snapshot visual"""
+        if not self.individuals:
+            goal = self.get_visual_goal()
+            return GenerationVisualSnapshot(
+                generation=generation,
+                individuals=[],
+                objective=goal,
+                population_size=0,
+                best_fitness=0.0,
+                avg_fitness=0.0,
+                avg_distance_to_goal=0.0,
+                centroid={"x": 0.0, "y": 0.0, "z": 0.0}
+            )
+
+        goal = self.get_visual_goal()
+        target = goal["metrics"]
+
+        sorted_population = sorted(
+            self.individuals,
+            key=lambda individual: individual.fitness,
+            reverse=True
+        )
+
+        fitness_values = [float(ind.fitness) for ind in sorted_population]
+        roi_values = [float(ind.roi) for ind in sorted_population]
+        risk_inverse_values = [
+            float(1.0 / (1.0 + max(ind.risk, 0.0)))
+            for ind in sorted_population
+        ]
+
+        fitness_norm = self._normalize(fitness_values)
+        roi_norm = self._normalize(roi_values)
+        risk_inverse_norm = self._normalize(risk_inverse_values)
+
+        individuals: List[IndividualVisualSnapshot] = []
+        distances: List[float] = []
+        xs: List[float] = []
+        ys: List[float] = []
+        zs: List[float] = []
+
+        for index, individual in enumerate(sorted_population):
+            distance = float(np.sqrt(
+                (target["fitness"] - fitness_norm[index]) ** 2 +
+                (target["roi"] - roi_norm[index]) ** 2 +
+                (target["risk_inverse"] - risk_inverse_norm[index]) ** 2
+            ))
+            proximity = max(0.0, 1.0 - (distance / np.sqrt(3)))
+
+            x = -8.5 + fitness_norm[index] * 17.0
+            y = -5.0 + roi_norm[index] * 10.0
+            z = -5.5 + risk_inverse_norm[index] * 11.0
+            is_elite = index < min(3, len(sorted_population))
+
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+            distances.append(distance)
+
+            individuals.append(
+                IndividualVisualSnapshot(
+                    id=f"gen-{generation}-ind-{index + 1}",
+                    generation=generation,
+                    fitness=float(individual.fitness),
+                    roi=float(individual.roi),
+                    risk=float(individual.risk),
+                    distance_to_goal=distance,
+                    x=x,
+                    y=y,
+                    z=z,
+                    scale=0.9 + proximity * 1.0 + (0.25 if is_elite else 0.0),
+                    opacity=0.35 + proximity * 0.65,
+                    color=self._blend_color(proximity),
+                    is_elite=is_elite,
+                    genes=individual.genes.to_dict()
+                )
+            )
+
+        return GenerationVisualSnapshot(
+            generation=generation,
+            individuals=individuals,
+            objective=goal,
+            population_size=len(individuals),
+            best_fitness=float(max(fitness_values)),
+            avg_fitness=float(np.mean(fitness_values)),
+            avg_distance_to_goal=float(np.mean(distances)),
+            centroid={
+                "x": float(np.mean(xs)),
+                "y": float(np.mean(ys)),
+                "z": float(np.mean(zs))
+            }
+        )
 
 
 class TournamentSelector:
@@ -347,6 +550,7 @@ class GeneticAlgorithm:
         
         # Estatísticas
         self.generation_stats: List[GenerationStats] = []
+        self.visual_history: List[GenerationVisualSnapshot] = []
         self.start_time: Optional[datetime] = None
     
     def evolve(self) -> EvolutionResult:
@@ -365,6 +569,7 @@ class GeneticAlgorithm:
         # Avalia população inicial
         print("Avaliando população inicial...")
         self.evaluator.evaluate_population(self.population)
+        self.visual_history.append(self.population.to_visual_snapshot(0))
         
         # Evolução
         for gen in range(self.generations):
@@ -433,6 +638,8 @@ class GeneticAlgorithm:
             # Callback
             if self.callback:
                 self.callback(gen + 1, self.population)
+
+            self.visual_history.append(self.population.to_visual_snapshot(gen + 1))
             
             # Convergência
             self.convergence.update(best)
@@ -450,7 +657,9 @@ class GeneticAlgorithm:
             generations_run=len(self.generation_stats),
             total_time=total_time,
             convergence_generation=self.convergence.get_convergence_generation(),
-            generation_stats=self.generation_stats
+            generation_stats=self.generation_stats,
+            visual_goal=Population.get_visual_goal(),
+            visual_history=self.visual_history
         )
 
 

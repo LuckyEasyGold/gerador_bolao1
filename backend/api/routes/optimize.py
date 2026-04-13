@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, Any, List
+from datetime import datetime
 from backend.database.connection import get_db
 from backend.database.repositories.contest_repository import ContestRepository
 from backend.core.feature_engineering import FeatureEngineer
-from backend.core.genetic_algorithm import GeneticAlgorithm
+from backend.core.genetic_algorithm import GeneticAlgorithm, Population
 from backend.models.experiment import ExperimentConfig
 
 router = APIRouter(prefix="/optimize", tags=["optimize"])
@@ -34,6 +35,27 @@ class OptimizeRequest(BaseModel):
                 "seed": 42
             }
         }
+
+
+def build_visual_summary(snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Gera resumo compacto do snapshot visual atual"""
+    if not snapshot:
+        return {
+            "generation": 0,
+            "population_size": 0,
+            "avg_distance_to_goal": None,
+            "best_individual": None
+        }
+
+    individuals = snapshot.get("individuals", [])
+    best_individual = individuals[0] if individuals else None
+
+    return {
+        "generation": snapshot.get("generation", 0),
+        "population_size": snapshot.get("population_size", len(individuals)),
+        "avg_distance_to_goal": snapshot.get("avg_distance_to_goal"),
+        "best_individual": best_individual
+    }
 
 
 @router.post("/start")
@@ -79,11 +101,18 @@ async def start_optimization(
         "id": experiment_id,
         "name": request.name,
         "budget": request.budget,
+        "config": config.model_dump(),
+        "seed": request.seed,
         "status": "starting",
         "progress": 0,
         "current_generation": 0,
         "best_fitness": None,
-        "result": None
+        "best_roi": None,
+        "result": None,
+        "visual_goal": Population.get_visual_goal(),
+        "visual_history": [],
+        "current_visual": None,
+        "started_at": datetime.utcnow().isoformat()
     }
     
     # Executa em background
@@ -100,7 +129,8 @@ async def start_optimization(
         "success": True,
         "experiment_id": experiment_id,
         "message": "Otimização iniciada",
-        "config": config.model_dump()
+        "config": config.model_dump(),
+        "visual_goal": running_experiments[experiment_id]["visual_goal"]
     }
 
 
@@ -117,11 +147,21 @@ def run_optimization(experiment_id: str,
         # Callback para atualizar progresso
         def progress_callback(generation: int, population):
             best = population.get_best(1)[0]
+            visual_snapshot = population.to_visual_snapshot(generation).to_dict()
+            visual_history = running_experiments[experiment_id].setdefault("visual_history", [])
+
+            if not any(
+                snapshot.get("generation") == generation
+                for snapshot in visual_history
+            ):
+                visual_history.append(visual_snapshot)
+
             running_experiments[experiment_id].update({
                 "current_generation": generation,
                 "progress": int((generation / config.generations) * 100),
                 "best_fitness": float(best.fitness),
-                "best_roi": float(best.roi)
+                "best_roi": float(best.roi),
+                "current_visual": visual_snapshot
             })
         
         # Cria e executa GA
@@ -148,13 +188,18 @@ def run_optimization(experiment_id: str,
         running_experiments[experiment_id].update({
             "status": "completed",
             "progress": 100,
-            "result": result.to_dict()
+            "result": result.to_dict(),
+            "visual_goal": result.visual_goal,
+            "visual_history": [snapshot.to_dict() for snapshot in result.visual_history],
+            "current_visual": result.visual_history[-1].to_dict() if result.visual_history else None,
+            "completed_at": datetime.utcnow().isoformat()
         })
         
     except Exception as e:
         running_experiments[experiment_id].update({
             "status": "failed",
-            "error": str(e)
+            "error": str(e),
+            "completed_at": datetime.utcnow().isoformat()
         })
 
 
@@ -167,8 +212,13 @@ async def get_optimization_status(experiment_id: str):
     """
     if experiment_id not in running_experiments:
         raise HTTPException(status_code=404, detail="Experimento não encontrado")
-    
-    return running_experiments[experiment_id]
+
+    experiment = running_experiments[experiment_id]
+
+    return {
+        **experiment,
+        "visual_summary": build_visual_summary(experiment.get("current_visual"))
+    }
 
 
 @router.get("/result/{experiment_id}")
@@ -194,7 +244,34 @@ async def get_optimization_result(experiment_id: str):
         "experiment_id": experiment_id,
         "name": experiment["name"],
         "budget": experiment["budget"],
-        "result": experiment["result"]
+        "result": experiment["result"],
+        "visual_goal": experiment.get("visual_goal"),
+        "visual_history": experiment.get("visual_history", [])
+    }
+
+
+@router.get("/visual/{experiment_id}")
+async def get_visual_evolution(experiment_id: str):
+    """
+    Retorna payload dedicado à visualização evolutiva
+
+    Inclui objetivo, timeline visual e snapshot atual.
+    """
+    if experiment_id not in running_experiments:
+        raise HTTPException(status_code=404, detail="Experimento não encontrado")
+
+    experiment = running_experiments[experiment_id]
+
+    return {
+        "success": True,
+        "experiment_id": experiment_id,
+        "name": experiment["name"],
+        "status": experiment["status"],
+        "goal": experiment.get("visual_goal"),
+        "current_generation": experiment.get("current_generation", 0),
+        "timeline": experiment.get("visual_history", []),
+        "current_visual": experiment.get("current_visual"),
+        "visual_summary": build_visual_summary(experiment.get("current_visual"))
     }
 
 
@@ -237,7 +314,9 @@ async def list_experiments():
             "status": exp_data["status"],
             "progress": exp_data.get("progress", 0),
             "current_generation": exp_data.get("current_generation", 0),
-            "best_fitness": exp_data.get("best_fitness")
+            "best_fitness": exp_data.get("best_fitness"),
+            "best_roi": exp_data.get("best_roi"),
+            "visual_summary": build_visual_summary(exp_data.get("current_visual"))
         })
     
     return {
