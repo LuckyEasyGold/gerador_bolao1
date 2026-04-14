@@ -179,6 +179,8 @@ class ROICalculator:
         
         ROI = (Retorno Médio - Custo) / Custo
         """
+        if len(returns) == 0:
+            return 0.0
         avg_return = returns.mean()
         return (avg_return - cost) / cost if cost > 0 else 0.0
     
@@ -190,6 +192,8 @@ class ROICalculator:
         
         Sharpe = (Retorno Médio - Taxa Livre de Risco) / Desvio Padrão
         """
+        if len(returns) == 0:
+            return 0.0
         avg_return = returns.mean()
         std_return = returns.std()
         
@@ -204,12 +208,22 @@ class ROICalculator:
         """
         Calcula taxa de vitória (% de sorteios com lucro)
         """
+        if len(returns) == 0:
+            return 0.0
         wins = np.sum(returns > cost)
         return wins / len(returns) if len(returns) > 0 else 0.0
     
     @staticmethod
     def calculate_percentiles(returns: np.ndarray) -> Dict[str, float]:
         """Calcula percentis de retorno"""
+        if len(returns) == 0:
+            return {
+                "p5": 0.0,
+                "p25": 0.0,
+                "p50": 0.0,
+                "p75": 0.0,
+                "p95": 0.0
+            }
         return {
             "p5": np.percentile(returns, 5),
             "p25": np.percentile(returns, 25),
@@ -229,6 +243,8 @@ class RiskAnalyzer:
         
         VaR = perda máxima esperada com X% de confiança
         """
+        if len(returns) == 0:
+            return 0.0
         return np.percentile(returns, (1 - confidence) * 100)
     
     @staticmethod
@@ -238,6 +254,8 @@ class RiskAnalyzer:
         
         CVaR = perda média além do VaR
         """
+        if len(returns) == 0:
+            return 0.0
         var = RiskAnalyzer.calculate_var(returns, confidence)
         tail_losses = returns[returns <= var]
         return tail_losses.mean() if len(tail_losses) > 0 else var
@@ -249,6 +267,8 @@ class RiskAnalyzer:
         
         Maior queda de pico a vale
         """
+        if len(returns) == 0:
+            return 0.0
         cumulative = np.cumsum(returns)
         running_max = np.maximum.accumulate(cumulative)
         drawdown = cumulative - running_max
@@ -323,6 +343,23 @@ class MonteCarloSimulator:
         
         # Distribuição de prêmios
         prize_distribution = self._calculate_prize_distribution(returns)
+        
+        # Validações para arrays vazios
+        if len(returns) == 0:
+            return SimulationResult(
+                simulations=n_simulations,
+                avg_return=0.0,
+                std_return=0.0,
+                median_return=0.0,
+                min_return=0.0,
+                max_return=0.0,
+                win_rate=0.0,
+                roi=0.0,
+                sharpe_ratio=0.0,
+                max_prize=0.0,
+                prize_distribution=prize_distribution,
+                hit_distribution=all_hit_distribution
+            )
         
         return SimulationResult(
             simulations=n_simulations,

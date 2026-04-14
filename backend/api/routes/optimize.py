@@ -18,7 +18,7 @@ running_experiments: Dict[str, dict] = {}
 class OptimizeRequest(BaseModel):
     """Request para otimização"""
     name: str = Field(..., min_length=1, max_length=255)
-    budget: float = Field(gt=0, description="Orçamento em reais")
+    budget: float = Field(gt=0, le=100000, description="Orçamento em reais (máximo: R$ 100.000)")
     config: Optional[ExperimentConfig] = None
     seed: Optional[int] = None
     

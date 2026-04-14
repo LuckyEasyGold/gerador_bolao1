@@ -135,6 +135,13 @@ class SoftmaxSampler:
         if temperature is None:
             temperature = self._compute_temperature()
         
+        # Garante que n_samples não excede o tamanho do pool
+        n_samples = min(n_samples, len(pool))
+        
+        # Garante que o pool não está vazio
+        if not pool:
+            return []
+        
         # Extrai scores do pool
         pool_scores = np.array([scores[num - 1] for num in pool])
         
@@ -160,8 +167,13 @@ class SoftmaxSampler:
     
     def _softmax(self, scores: np.ndarray, temperature: float) -> np.ndarray:
         """Calcula softmax com temperatura"""
-        exp_scores = np.exp(scores / temperature)
-        return exp_scores / exp_scores.sum()
+        # Evita overflow/underflow
+        exp_scores = np.exp((scores - np.max(scores)) / temperature)
+        sum_exp = exp_scores.sum()
+        if sum_exp == 0:
+            # Retorna distribuição uniforme se todos os scores forem zero
+            return np.ones(len(scores)) / len(scores)
+        return exp_scores / sum_exp
 
 
 class StructuralScorer:
@@ -279,6 +291,16 @@ class GameGenerator:
         if pool is None:
             pool = self.pool_selector.select_pool()
         
+        # Garante que o pool não está vazio
+        if not pool:
+            # Retorna jogo aleatório como fallback
+            numbers = sorted(self.rng.choice(range(1, settings.total_numbers + 1), size=size, replace=False))
+            return Game(
+                numbers=numbers,
+                size=size,
+                cost=self._get_cost(size)
+            )
+        
         # Calcula scores
         weights = {
             'wf': self.dna.genes.wf,
@@ -289,7 +311,9 @@ class GameGenerator:
         
         # Gera múltiplos candidatos
         candidates = []
-        for _ in range(self.dna.genes.candidates_per_game):
+        # Garante pelo menos 1 candidato
+        num_candidates = max(1, self.dna.genes.candidates_per_game)
+        for _ in range(num_candidates):
             numbers = self.sampler.sample(pool, scores, size)
             game = Game(
                 numbers=numbers,
@@ -340,7 +364,21 @@ class GameGenerator:
         
         # Escolhe baseado em scores
         available_scores = np.array([scores[n - 1] for n in available])
-        probs = available_scores / available_scores.sum()
+        
+        # Normaliza scores para garantir que sejam não-negativos
+        min_score = available_scores.min()
+        if min_score < 0:
+            available_scores = available_scores - min_score
+        
+        total_score = available_scores.sum()
+        if total_score == 0 or np.isnan(total_score) or np.isinf(total_score):
+            # Distribuição uniforme se todos os scores forem zero ou inválidos
+            probs = np.ones(len(available)) / len(available)
+        else:
+            probs = available_scores / total_score
+            # Garante que probs soma 1.0 e não tem valores negativos
+            probs = np.abs(probs)
+            probs = probs / probs.sum()
         
         new_num = self.rng.choice(available, p=probs)
         numbers.append(new_num)
@@ -477,11 +515,25 @@ class TicketGenerator:
         Returns:
             Ticket otimizado
         """
+        # Garante orçamento mínimo
+        if budget < settings.cost_15:
+            budget = settings.cost_15
+        
         # Seleciona pool uma vez
         pool = self.game_generator.pool_selector.select_pool()
         
+        # Garante que o pool não está vazio
+        if not pool:
+            pool = list(range(1, settings.total_numbers + 1))
+        
         # Distribui orçamento entre tamanhos de jogo
         distribution = self._distribute_budget(budget)
+        
+        # Verifica se há jogos para gerar
+        total_games = sum(distribution.values())
+        if total_games == 0:
+            # Força pelo menos 1 jogo de 15 números
+            distribution = {15: 1, 16: 0, 17: 0}
         
         # Gera jogos
         games = []
@@ -502,6 +554,10 @@ class TicketGenerator:
         Returns:
             Dict {tamanho: quantidade}
         """
+        # Garante orçamento mínimo
+        if budget < settings.cost_15:
+            budget = settings.cost_15
+        
         # Pesos do DNA
         w15 = self.dna.genes.w15
         w16 = self.dna.genes.w16
@@ -521,10 +577,10 @@ class TicketGenerator:
         budget_16 = budget * w16
         budget_17 = budget * w17
         
-        # Calcula quantidades
-        count_15 = int(budget_15 / settings.cost_15)
-        count_16 = int(budget_16 / settings.cost_16)
-        count_17 = int(budget_17 / settings.cost_17)
+        # Calcula quantidades (garante pelo menos 1 jogo)
+        count_15 = max(1, int(budget_15 / settings.cost_15))
+        count_16 = max(0, int(budget_16 / settings.cost_16))
+        count_17 = max(0, int(budget_17 / settings.cost_17))
         
         # Ajusta para usar todo o orçamento
         remaining = budget - (

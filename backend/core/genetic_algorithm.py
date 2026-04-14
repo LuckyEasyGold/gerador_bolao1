@@ -483,24 +483,40 @@ class FitnessEvaluator:
         
         Fitness = função do ROI e risco
         """
-        # Gera bolão
-        generator = TicketGenerator(self.engineer, dna, seed=self.seed)
-        ticket = generator.generate_ticket(self.budget)
-        
-        # Simula
-        simulator = MonteCarloSimulator(seed=self.seed, use_crn=True)
-        result = simulator.simulate_ticket(ticket, self.simulations)
-        
-        # Fitness = ROI - penalização por risco
-        # Sharpe Ratio já considera risco
-        fitness = result.sharpe_ratio
-        
-        # Atualiza DNA
-        dna.fitness = fitness
-        dna.roi = result.roi
-        dna.risk = result.std_return / result.avg_return if result.avg_return > 0 else 1.0
-        
-        return fitness
+        try:
+            # Gera bolão
+            generator = TicketGenerator(self.engineer, dna, seed=self.seed)
+            ticket = generator.generate_ticket(self.budget)
+            
+            # Simula
+            simulator = MonteCarloSimulator(seed=self.seed, use_crn=True)
+            result = simulator.simulate_ticket(ticket, self.simulations)
+            
+            # Valida resultados
+            if result.sharpe_ratio is None or not isinstance(result.sharpe_ratio, (int, float)):
+                fitness = 0.0
+            elif np.isnan(result.sharpe_ratio) or np.isinf(result.sharpe_ratio):
+                fitness = 0.0
+            else:
+                fitness = result.sharpe_ratio
+            
+            # Atualiza DNA com validação de segurança
+            dna.fitness = float(fitness)
+            dna.roi = float(result.roi) if result.roi is not None else 0.0
+            
+            # Evita divisão por zero ou valores extremos
+            if result.avg_return is not None and abs(result.avg_return) > 0.01:
+                dna.risk = float(result.std_return / result.avg_return)
+            else:
+                dna.risk = 1.0
+            
+            return float(fitness)
+        except Exception as e:
+            print(f"Erro ao avaliar DNA: {e}")
+            dna.fitness = 0.0
+            dna.roi = 0.0
+            dna.risk = 1.0
+            return 0.0
     
     def evaluate_population(self, population: Population) -> None:
         """Avalia toda a população"""
@@ -689,14 +705,23 @@ class MultiObjectiveGA(GeneticAlgorithm):
         simulator = MonteCarloSimulator(seed=self.seed, use_crn=True)
         result = simulator.simulate_ticket(ticket, self.evaluator.simulations)
         
+        # Valida resultados
+        roi = float(result.roi) if result.roi is not None else 0.0
+        
+        # Evita divisão por zero ou valores extremos
+        if result.avg_return is not None and abs(result.avg_return) > 0.01:
+            risk = float(result.std_return / result.avg_return)
+        else:
+            risk = 1.0
+        
         # Fitness multi-objetivo
-        roi_component = self.roi_weight * result.roi
-        risk_component = self.risk_weight * dna.risk
+        roi_component = self.roi_weight * roi
+        risk_component = self.risk_weight * risk
         
         fitness = roi_component - risk_component
         
-        dna.fitness = fitness
-        dna.roi = result.roi
-        dna.risk = result.std_return / result.avg_return if result.avg_return > 0 else 1.0
+        dna.fitness = float(fitness)
+        dna.roi = roi
+        dna.risk = risk
         
-        return fitness
+        return float(fitness)

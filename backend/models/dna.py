@@ -107,11 +107,53 @@ class DNA(BaseModel):
             else:
                 mutated[key] = value
         
+        # Valida e corrige valores fora dos limites
+        mutated = self._clip_values(mutated)
+        
         # Cria novo DNA com genes mutados (validação automática via Pydantic)
         return DNA(
             genes=DNAGene(**mutated),
             generation=self.generation + 1
         )
+    
+    @staticmethod
+    def _clip_values(genes_dict: dict) -> dict:
+        """Garante que valores estão dentro dos limites válidos"""
+        # Pesos de tamanho (0-1)
+        for key in ['w15', 'w16', 'w17']:
+            genes_dict[key] = float(np.clip(genes_dict[key], 0.0, 1.0))
+        
+        # Pesos de features (-1 a 1)
+        for key in ['wf', 'wa', 'wr']:
+            genes_dict[key] = float(np.clip(genes_dict[key], -1.0, 1.0))
+        
+        # Peso de afinidade (0-2)
+        genes_dict['wc_aff'] = float(np.clip(genes_dict['wc_aff'], 0.0, 2.0))
+        
+        # Temperatura base (0.1-5)
+        genes_dict['T_base'] = float(np.clip(genes_dict['T_base'], 0.1, 5.0))
+        
+        # Kappa (0-1)
+        genes_dict['kappa'] = float(np.clip(genes_dict['kappa'], 0.0, 1.0))
+        
+        # Pesos estruturais (0-1)
+        for key in ['wp', 'wl', 'ws', 'wo']:
+            genes_dict[key] = float(np.clip(genes_dict[key], 0.0, 1.0))
+        
+        # Pesos de diversidade (0-1)
+        for key in ['wcov', 'wd', 'woverlap']:
+            genes_dict[key] = float(np.clip(genes_dict[key], 0.0, 1.0))
+        
+        # Pool size (18-25)
+        genes_dict['pool_size'] = int(np.clip(genes_dict['pool_size'], 18, 25))
+        
+        # Candidates per game (10-200)
+        genes_dict['candidates_per_game'] = int(np.clip(genes_dict['candidates_per_game'], 10, 200))
+        
+        # Refine iterations (10-2000)
+        genes_dict['refine_iterations'] = int(np.clip(genes_dict['refine_iterations'], 10, 2000))
+        
+        return genes_dict
     
     @staticmethod
     def crossover(parent1: "DNA", parent2: "DNA", 
