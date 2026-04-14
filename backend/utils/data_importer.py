@@ -1,59 +1,64 @@
-import httpx
 import csv
+import logging
 from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
 from backend.models.contest import Contest
 from backend.database.repositories.contest_repository import ContestRepository
+from backend.core.lottery_fetcher import LotteryFetcherService
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class LotofacilDataImporter:
     """Importador de dados históricos da Lotofácil"""
     
-    CAIXA_API_URL = "https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil"
-    
     def __init__(self, db: Session):
         self.db = db
         self.repository = ContestRepository(db)
+        self.fetcher = LotteryFetcherService()
     
     async def fetch_contest_from_api(self, contest_id: int) -> Optional[Contest]:
         """Busca um concurso específico da API da Caixa"""
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(f"{self.CAIXA_API_URL}/{contest_id}")
-                
-                if response.status_code != 200:
-                    return None
-                
-                data = response.json()
-                
-                # Extrai números sorteados
-                numbers = []
-                for i in range(1, 16):
-                    num = data.get(f"dezena{i}")
-                    if num:
-                        numbers.append(int(num))
-                
-                if len(numbers) != 15:
-                    return None
-                
-                # Converte data
-                date_str = data.get("dataApuracao")
-                draw_date = datetime.strptime(date_str, "%d/%m/%Y").date()
-                
-                return Contest(
-                    contest_id=contest_id,
-                    draw_date=draw_date,
-                    numbers=numbers
-                )
+            result = await self.fetcher.fetch_specific_contest("LOTOFACIL", contest_id)
+            
+            if not result:
+                return None
+            
+            numbers = result.get("numbers", [])
+            if len(numbers) != 15:
+                logger.warning(f"Concurso {contest_id} não possui 15 números")
+                return None
+            
+            draw_date = result.get("draw_date")
+            if draw_date:
+                draw_date = draw_date.date()
+            else:
+                return None
+            
+            return Contest(
+                contest_id=contest_id,
+                draw_date=draw_date,
+                numbers=numbers
+            )
         except Exception as e:
-            print(f"Erro ao buscar concurso {contest_id}: {e}")
+            logger.error(f"Erro ao buscar concurso {contest_id}: {e}")
             return None
     
     async def fetch_latest_contest(self) -> Optional[Contest]:
         """Busca o concurso mais recente da API"""
-        return await self.fetch_contest_from_api(0)  # 0 retorna o último
+        result = await self.fetcher.fetch_latest_result("LOTOFACIL")
+        
+        if not result:
+            return None
+        
+        contest_id = result.get("contest_number")
+        if not contest_id:
+            return None
+        
+        return await self.fetch_contest_from_api(contest_id)
     
     async def import_range(self, start_id: int, end_id: int) -> int:
         """Importa range de concursos da API"""
@@ -117,15 +122,15 @@ class LotofacilDataImporter:
         if not latest_remote:
             return 0
         
-        if not latest_local:
-            # Importa todos desde o início
-            return await self.import_range(1, latest_remote.contest_id)
+        remote_contest_id = latest_remote.contest_id
         
-        if latest_remote.contest_id > latest_local.contest_id:
-            # Importa apenas os novos
+        if not latest_local:
+            return await self.import_range(1, remote_contest_id)
+        
+        if remote_contest_id > latest_local.contest_id:
             return await self.import_range(
                 latest_local.contest_id + 1,
-                latest_remote.contest_id
+                remote_contest_id
             )
         
         return 0

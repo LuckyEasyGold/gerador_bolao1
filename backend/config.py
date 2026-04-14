@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Optimization
     max_workers: int = 4
     cache_ttl: int = 3600
+    auto_sync_contests_on_startup: bool = True
     
     # Monte Carlo
     default_simulations: int = 10000
@@ -44,6 +45,10 @@ class Settings(BaseSettings):
     cost_18: float = 2448.00
     cost_19: float = 11628.00
     cost_20: float = 46512.00
+    
+    # API Caixa
+    caixa_api_base_url: str = "https://servicebus2.caixa.gov.br/portaldeloterias/api"
+    caixa_api_timeout: int = 30
     
     class Config:
         env_file = ".env"
