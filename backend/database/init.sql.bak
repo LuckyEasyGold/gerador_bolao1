@@ -1,37 +1,15 @@
 -- Schema inicial do banco de dados Lotofácil Optimizer
 
 -- Tabela de concursos históricos
--- 1. Criamos a tabela com apenas a validação de tamanho (que é permitida)
 CREATE TABLE IF NOT EXISTS contests (
     contest_id INTEGER PRIMARY KEY,
     draw_date DATE NOT NULL,
     numbers INTEGER[] NOT NULL CHECK (array_length(numbers, 1) = 15),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT valid_numbers CHECK (
+        (SELECT COUNT(DISTINCT n) FROM unnest(numbers) n WHERE n BETWEEN 1 AND 25) = 15
+    )
 );
-
--- 2. Criamos uma função de validação para o Trigger
-CREATE OR REPLACE FUNCTION validate_lotofacil_numbers()
-RETURNS TRIGGER AS $$
-DECLARE
-    valid_count INTEGER;
-BEGIN
-    -- Conta quantos números distintos entre 1 e 25 existem no array
-    SELECT COUNT(DISTINCT n) INTO valid_count 
-    FROM unnest(NEW.numbers) n 
-    WHERE n BETWEEN 1 AND 25;
-
-    IF valid_count != 15 THEN
-        RAISE EXCEPTION 'O sorteio deve conter exatamente 15 números distintos entre 1 e 25. Recebido: %', NEW.numbers;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 3. Criamos o Trigger que chama a função antes de cada INSERT ou UPDATE
-CREATE TRIGGER trigger_validate_numbers
-BEFORE INSERT OR UPDATE ON contests
-FOR EACH ROW EXECUTE FUNCTION validate_lotofacil_numbers();
 
 CREATE INDEX idx_contests_date ON contests(draw_date DESC);
 CREATE INDEX idx_contests_numbers ON contests USING GIN(numbers);

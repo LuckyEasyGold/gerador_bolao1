@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from backend.database.connection import get_db
@@ -267,7 +267,7 @@ async def compute_scores(
 
 @router.get("/number/{number}")
 async def get_number_features(
-    number: int = Query(..., ge=1, le=25),
+    number: int = Path(..., ge=1, le=25),
     db: Session = Depends(get_db)
 ):
     """Retorna todas as features de um número específico"""

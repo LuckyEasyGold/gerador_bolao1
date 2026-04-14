@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
@@ -100,7 +100,9 @@ async def delete_checkpoint(checkpoint_id: str):
 
 
 @router.post("/checkpoints/cleanup")
-async def cleanup_checkpoints(days: int = Field(30, ge=1, le=365)):
+async def cleanup_checkpoints(
+    days: int = Query(30, ge=1, le=365, description="Remove checkpoints com mais de N dias")
+):
     """
     Remove checkpoints antigos
     

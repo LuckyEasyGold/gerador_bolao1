@@ -1,7 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
-from contextlib import contextmanager
 from typing import Generator
 import redis
 from backend.config import get_settings
@@ -29,9 +28,8 @@ redis_client = redis.from_url(
 )
 
 
-@contextmanager
 def get_db() -> Generator[Session, None, None]:
-    """Context manager para sessão do banco"""
+    """Dependency do FastAPI para sessão do banco"""
     db = SessionLocal()
     try:
         yield db

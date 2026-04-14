@@ -15,35 +15,26 @@ git clone <repository-url>
 cd lotofacil-optimizer
 ```
 
-### 2. Configure o ambiente
+### 2. Abra a aplicação
 
-```bash
-make setup
+No Windows, basta dar duplo clique em [Iniciar Lotofacil Optimizer.bat](/C:/projetos/gerador_bolao/Iniciar%20Lotofacil%20Optimizer.bat).
+
+Ou, se preferir um único comando:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_app.ps1
 ```
 
 Este comando irá:
-- Criar arquivo `.env` a partir do exemplo
-- Iniciar PostgreSQL e Redis via Docker
-- Aguardar inicialização dos serviços
+- subir frontend, backend, PostgreSQL e Redis via Docker;
+- aguardar os serviços ficarem prontos;
+- abrir a interface no navegador.
 
-### 3. Instale as dependências Python
+### 3. Acesse a aplicação
 
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # No Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 4. Inicie a API
-
-```bash
-python -m backend.main
-```
-
-A API estará disponível em: http://localhost:8000
-
-Documentação interativa: http://localhost:8000/docs
+- Interface: http://localhost:5173
+- API: http://localhost:8000
+- Documentação interativa: http://localhost:8000/docs
 
 ## Importação de Dados Históricos
 
@@ -89,10 +80,10 @@ curl http://localhost:8000/contests/stats/summary
 ## Comandos Úteis
 
 ```bash
-# Iniciar infraestrutura
+# Iniciar aplicação
 make start
 
-# Parar infraestrutura
+# Parar aplicação
 make stop
 
 # Executar testes

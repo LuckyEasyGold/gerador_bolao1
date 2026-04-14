@@ -3,26 +3,22 @@
 help:
 	@echo "Comandos disponíveis:"
 	@echo "  make setup    - Configura ambiente inicial"
-	@echo "  make start    - Inicia infraestrutura (Docker)"
-	@echo "  make stop     - Para infraestrutura"
+	@echo "  make start    - Sobe a aplicação completa"
+	@echo "  make stop     - Para a aplicação"
 	@echo "  make test     - Executa testes"
 	@echo "  make clean    - Limpa arquivos temporários"
 
 setup:
 	@echo "Configurando ambiente..."
-	cp backend/.env.example backend/.env
-	docker-compose up -d
-	@echo "Aguardando banco de dados..."
-	sleep 5
+	@if not exist backend\.env copy backend\.env.example backend\.env >nul
+	powershell -ExecutionPolicy Bypass -File scripts\start_app.ps1
 	@echo "✓ Ambiente configurado!"
 
 start:
-	docker-compose up -d
-	@echo "✓ Infraestrutura iniciada"
+	powershell -ExecutionPolicy Bypass -File scripts\start_app.ps1
 
 stop:
-	docker-compose down
-	@echo "✓ Infraestrutura parada"
+	powershell -ExecutionPolicy Bypass -File scripts\stop_app.ps1
 
 test:
 	cd backend && pytest tests/ -v --cov=backend

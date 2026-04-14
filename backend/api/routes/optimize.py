@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
@@ -328,7 +328,7 @@ async def list_experiments():
 
 @router.post("/quick")
 async def quick_optimization(
-    budget: float = Field(..., gt=0),
+    budget: float = Query(..., gt=0, description="Orçamento em reais"),
     db: Session = Depends(get_db)
 ):
     """

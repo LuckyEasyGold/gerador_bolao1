@@ -128,46 +128,39 @@ Documentação interativa:
 
 - [http://localhost:8000/docs](http://localhost:8000/docs)
 
+## Como abrir a aplicação
+
+### Opção mais simples no Windows
+
+1. Dê duplo clique em [Iniciar Lotofacil Optimizer.bat](/C:/projetos/gerador_bolao/Iniciar%20Lotofacil%20Optimizer.bat)
+2. Aguarde o navegador abrir sozinho
+
+Para fechar tudo depois, use [Parar Lotofacil Optimizer.bat](/C:/projetos/gerador_bolao/Parar%20Lotofacil%20Optimizer.bat).
+
+### Opção por comando único
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_app.ps1
+```
+
+Esse comando:
+
+- sobe backend, frontend, PostgreSQL e Redis;
+- espera os serviços ficarem prontos;
+- abre a interface automaticamente no navegador.
+
 ## Como rodar localmente
 
-### 1. Suba a infraestrutura
+### 1. Suba a aplicação completa
 
-```bash
-docker-compose up -d
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_app.ps1
 ```
 
-### 2. Instale o backend
+### 2. Importe os dados históricos
 
 ```bash
-cd backend
-pip install -r requirements.txt
-```
-
-### 3. Instale o frontend
-
-```bash
-cd ../frontend
-npm install
-```
-
-### 4. Importe os dados históricos
-
-```bash
-cd ..
 python scripts/import_historical_data.py
-```
-
-### 5. Inicie a API
-
-```bash
-python -m backend.main
-```
-
-### 6. Inicie o frontend
-
-```bash
-cd frontend
-npm run dev
 ```
 
 ### Endereços locais

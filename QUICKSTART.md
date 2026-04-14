@@ -2,21 +2,19 @@
 
 Guia rápido para colocar o sistema no ar em 5 minutos.
 
-## 🚀 Setup em 3 Comandos
+## 🚀 Setup em 1 Comando
 
-```bash
-# 1. Inicializar infraestrutura
-bash scripts/init_project.sh
-
-# 2. Instalar dependências Python
-cd backend && pip install -r requirements.txt
-
-# 3. Iniciar API
-python -m backend.main
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_app.ps1
 ```
 
+✅ Frontend rodando em: http://localhost:5173  
 ✅ API rodando em: http://localhost:8000  
 📚 Documentação: http://localhost:8000/docs
+
+## 🖱️ Setup em 1 Clique
+
+No Windows, dê duplo clique em [Iniciar Lotofacil Optimizer.bat](/C:/projetos/gerador_bolao/Iniciar%20Lotofacil%20Optimizer.bat).
 
 ## 🎲 Importar Dados Históricos
 
@@ -106,10 +104,10 @@ docker exec -it lotofacil_postgres psql -U lotofacil_user -d lotofacil
 docker exec -it lotofacil_redis redis-cli
 
 # Parar tudo
-docker-compose down
+powershell -ExecutionPolicy Bypass -File .\scripts\stop_app.ps1
 
 # Reiniciar
-docker-compose up -d
+powershell -ExecutionPolicy Bypass -File .\scripts\start_app.ps1
 ```
 
 ## 🧪 Executar Testes

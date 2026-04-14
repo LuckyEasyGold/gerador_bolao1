@@ -1,0 +1,21 @@
+# Ignorar ambientes virtuais de Python
+venv/
+.venv/
+env/
+
+# Ignorar pastas do Node
+node_modules/
+**/node_modules/
+
+# Ignorar pastas de sistema e IDEs
+.git/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# Ignorar arquivos de log e temporários
+*.log
+.DS_Store
+dist/
+build/
