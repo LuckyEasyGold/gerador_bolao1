@@ -1,21 +1,297 @@
-# Estrutura do Projeto - Lotofácil Optimizer
+# Estrutura do Projeto - Lotofácil Gerador de Bolões v2
 
-## 📁 Visão Geral
+## 📁 Visão Geral - Nova Arquitetura
 
 ```
-lotofacil-optimizer/
-├── 📄 Documentação
+gerador_bolao/
+├── 📄 Documentação Essencial
 ├── 🐳 Infraestrutura
-├── 🔧 Backend
-├── 🎨 Frontend (Fase 7)
+├── 🔧 Backend (API v2)
+├── 🎨 Frontend (React)
 ├── 🧪 Testes
-└── 📜 Scripts
+└── 📊 Data
 ```
+
+---
 
 ## 📂 Estrutura Completa
 
 ```
-lotofacil-optimizer/
+gerador_bolao/
+│
+├── 📄 README.md                          # Visão geral
+├── 📄 INSTALL.md                         # Como instalar
+├── 📄 ROADMAP.md                         # Futuro
+├── 📄 STATUS.md                          # Status atual
+├── 📄 SISTEMA_REFATORADO_v2.md          # 📌 Documentação Técnica
+├── 📄 PROJECT_STRUCTURE.md               # Este arquivo
+│
+├── 🐳 docker-compose.yml                 # Docker Compose
+├── 📄 Makefile                           # Comandos
+├── 📄 pytest.ini                         # Testes
+│
+├── 🔧 backend/                           # Backend FastAPI
+│   │
+│   ├── main.py                           # ✅ App FastAPI (atualizado)
+│   ├── config.py                         # Configurações
+│   ├── requirements.txt                  # Dependências
+│   │
+│   ├── 📁 models/                        # Modelos Pydantic
+│   │   ├── pool_dna.py                   # ✅ NOVO: DNA simplificado
+│   │   ├── contest.py
+│   │   └── dna.py                        # Legado
+│   │
+│   ├── 📁 core/                          # Lógica de Negócio
+│   │   ├── pool_genetic_algorithm.py     # ✅ NOVO: GA rápido
+│   │   ├── pool_cache_manager.py         # ✅ NOVO: Cache em JSON
+│   │   ├── simple_ticket_generator.py    # ✅ NOVO: gerar_bolao()
+│   │   ├── monte_carlo.py
+│   │   ├── game_generator.py             # Legado
+│   │   └── genetic_algorithm.py          # Legado
+│   │
+│   ├── 📁 database/                      # Persistência
+│   │   ├── connection.py
+│   │   ├── init.sql
+│   │   └── repositories/
+│   │       └── contest_repository.py
+│   │
+│   ├── 📁 api/routes/                    # Endpoints
+│   │   ├── pool_v2.py                    # ✅ NOVO: API v2
+│   │   ├── games.py
+│   │   ├── optimize.py                   # Legado
+│   │   └── [outros]
+│   │
+│   └── 📁 utils/
+│       └── data_importer.py
+│
+├── 🎨 frontend/                          # React + TypeScript
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx
+│       ├── 📁 components/
+│       └── 📁 services/
+│
+├── 📊 data/                              # Dados e Cache
+│   ├── 📁 pools/
+│   │   ├── pool_otimo.json              # ⭐ Pool ótimo em cache
+│   │   └── 📁 history/
+│   ├── 📁 checkpoints/
+│   ├── 📁 logs/
+│   └── 📁 seeds/
+│
+├── 🧪 tests/                             # Testes
+│   ├── test_dna.py
+│   ├── test_features.py
+│   └── [outros]
+│
+└── 📜 scripts/                           # Utilitários
+    ├── init_project.sh
+    ├── start_app.ps1
+    └── stop_app.ps1
+```
+
+---
+
+## 🆕 Componentes Principais v2.0
+
+### 1. PoolDNA (`backend/models/pool_dna.py`)
+
+**O que é:**  
+Representação simplificada do cromossomo - apenas um pool de números (15-25).
+
+**Métodos:**
+- `PoolDNA.random()` - Gera DNA aleatório
+- `mutate()` - Remove/adiciona números
+- `crossover(parent1, parent2)` - Combina 2 pools
+
+**Exemplo:**
+```python
+dna = PoolDNA(pool=[3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 24])
+mutated = dna.mutate(mutation_rate=0.3)
+child = PoolDNA.crossover(dna, mutated)
+```
+
+---
+
+### 2. PoolGeneticAlgorithm (`backend/core/pool_genetic_algorithm.py`)
+
+**O que faz:**  
+Evolui pool ótimo em 20-30 gerações (~2 minutos).
+
+**Principais Componentes:**
+- Population - Gerencia população de DNAs
+- PoolGenerationStats - Estatísticas por geração
+- PoolEvolutionResult - Resultado final
+
+**Uso:**
+```python
+ga = PoolGeneticAlgorithm(
+    contests=contests,
+    population_size=10,
+    generations=20,
+    simulations=500
+)
+result = ga.evolve()
+```
+
+---
+
+### 3. PoolCacheManager (`backend/core/pool_cache_manager.py`)
+
+**O que faz:**  
+Persiste pool ótimo em JSON para reutilização.
+
+**Estrutura:**
+```
+data/pools/
+├── pool_otimo.json              # Pool atual
+└── history/
+    └── pool_20260415_103500.json # Histórico
+```
+
+**Métodos:**
+- `save_pool(pool, fitness, roi)` - Salva
+- `load_pool()` - Carrega
+- `has_cached_pool()` - Verifica
+- `clear_cache()` - Remove
+
+---
+
+### 4. simple_ticket_generator (`backend/core/simple_ticket_generator.py`)
+
+**O que faz:**  
+Calcula distribuição de j15, j16, j17 em <100ms.
+
+**Função Principal:**
+```python
+def calcular_distribuicao_orcamento(
+    valor_total: float,
+    valor_unitario: float,
+    pool: Optional[List[int]] = None
+) -> SimpleBolao
+```
+
+**Retorna:**
+```python
+SimpleBolao(
+    j15=2, j16=1, j17=1,
+    custo_total=90.0,
+    total_jogos=4,
+    pool_usado=[3, 5, 7, ...]
+)
+```
+
+---
+
+### 5. API Routes v2 (`backend/api/routes/pool_v2.py`)
+
+**Endpoints:**
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/bolao/pool/encontrar` | Inicia busca GA |
+| GET | `/bolao/pool/status/{task_id}` | Status da busca |
+| GET | `/bolao/pool/otimo` | Pool do cache |
+| POST | `/bolao/gerar` | Gera bolão |
+| GET | `/bolao/pool/historico` | Histórico |
+| DELETE | `/bolao/pool/cache` | Limpa cache |
+
+---
+
+## 📊 Fluxo de Dados
+
+```
+PRIMEIRA VEZ:
+┌─────────────────────┐
+│ POST /pool/encontrar│ ← Usuário inicia
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ PoolGeneticAlgorithm│ ← GA executa
+│  20 gerações ~2min  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ PoolCacheManager    │ ← Salva pool
+│ data/pools/         │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Pool otimizado!     │ ← Retorna task_id
+└─────────────────────┘
+
+DEPOIS (INFINITAS VEZES):
+┌─────────────────────┐
+│ POST /bolao/gerar   │ ← Usuário chama
+│ {valor, cotas, ...} │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ PoolCacheManager    │ ← Carrega pool
+│ (disk ou mem)       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ simple_ticket_...   │ ← Calcula em <100ms
+│ {j15, j16, j17}    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ SimpleBolao retorno │ ← Resposta
+└─────────────────────┘
+```
+
+---
+
+## 📋 Dependências Principais
+
+```python
+# backend/requirements.txt
+fastapi           # Web framework
+sqlalchemy        # ORM
+pydantic          # Validação
+numpy             # Computação
+redis             # Cache (opcional)
+uvicorn           # Server
+```
+
+---
+
+## 🏗️ Como Estruturar Novo Código
+
+### Adicionar Novo Endpoint
+
+1. Criar função em `backend/api/routes/pool_v2.py`
+2. Usar decorador `@router.post("rota")`
+3. Retornar `dict` JSON
+
+### Adicionar Novo Core Module
+
+1. Criar em `backend/core/novo_modulo.py`
+2. Implementar classe(s) principal(ais)
+3. Atualizar imports em `main.py`
+
+### Modificar Models
+
+1. Editar em `backend/models/novo_model.py`
+2. Usar Pydantic BaseModel
+3. Adicionar validators se necessário
+
+---
+
+## 📝 Notas
+
+- **v2.0 = Simplificação:** Apenas 5 componentes novos focados
+- **Legado mantido:** Codes antigos podem ser removidos depois
+- **Cache: Arquivo JSON** (pode migrar para Redis depois)
+- **DB: SQLAlchemy** (pode evoluir para async depois)
 │
 ├── 📄 README.md                          # Visão geral do projeto
 ├── 📄 INSTALL.md                         # Guia de instalação

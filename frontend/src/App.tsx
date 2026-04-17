@@ -1,201 +1,169 @@
-import { useEffect, useMemo, useState } from "react";
-import { ConvergencePanel } from "./components/ConvergencePanel";
-import { EvolutionScene } from "./components/EvolutionScene";
-import { EvolutionTimeline } from "./components/EvolutionTimeline";
-import { ExperimentControlPanel } from "./components/ExperimentControlPanel";
-import { MetricsBar } from "./components/MetricsBar";
-import { ResultSummary } from "./components/ResultSummary";
-import {
-  getOptimizationResult,
-  getOptimizationStatus,
-  getVisualEvolution,
-  listExperiments,
-  startOptimization
-} from "./services/api";
-import type {
-  ExperimentListItem,
-  OptimizeFormValues,
-  OptimizeResultPayload,
-  OptimizeStatus,
-  VisualEvolutionResponse,
-  VisualSnapshot
-} from "./types/api";
+import { useState } from "react";
+import "./App.css";
 
-function formatMetric(value: number | null | undefined, digits = 3) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return "--";
-  }
-
-  return value.toFixed(digits);
+interface BolaoResult {
+  j15: number;
+  j16: number;
+  j17: number;
+  custo_total: number;
+  total_jogos: number;
 }
 
 export default function App() {
-  const [experiments, setExperiments] = useState<ExperimentListItem[]>([]);
-  const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
-  const [status, setStatus] = useState<OptimizeStatus | null>(null);
-  const [result, setResult] = useState<OptimizeResultPayload | null>(null);
-  const [visualData, setVisualData] = useState<VisualEvolutionResponse | null>(null);
-  const [selectedGeneration, setSelectedGeneration] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [valor_total, setValorTotal] = useState<string>("1000");
+  const [cotas, setCotas] = useState<string>("5");
+  const [valor_unitario, setValorUnitario] = useState<string>("200");
+  
+  const [resultado, setResultado] = useState<BolaoResult | null>(null);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  async function refreshExperiments() {
-    const response = await listExperiments();
-    setExperiments(response.experiments);
-    if (!selectedExperimentId && response.experiments[0]) {
-      setSelectedExperimentId(response.experiments[0].id);
-    }
-  }
-
-  async function refreshSelectedExperiment(experimentId: string) {
-    const [nextStatus, nextVisual] = await Promise.all([
-      getOptimizationStatus(experimentId),
-      getVisualEvolution(experimentId)
-    ]);
-
-    setStatus(nextStatus);
-    setVisualData(nextVisual);
-    setSelectedGeneration(nextVisual.current_generation);
-
-    if (nextStatus.status === "completed") {
-      const resultResponse = await getOptimizationResult(experimentId);
-      setResult(resultResponse.result);
-    } else {
-      setResult(null);
-    }
-  }
-
-  useEffect(() => {
-    void refreshExperiments().catch((reason: unknown) => {
-      setError(reason instanceof Error ? reason.message : "Falha ao carregar experimentos.");
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!selectedExperimentId) {
-      return;
-    }
-
-    void refreshSelectedExperiment(selectedExperimentId).catch((reason: unknown) => {
-      setError(reason instanceof Error ? reason.message : "Falha ao carregar experimento.");
-    });
-  }, [selectedExperimentId]);
-
-  useEffect(() => {
-    if (!selectedExperimentId || !status || !["starting", "running"].includes(status.status)) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void refreshSelectedExperiment(selectedExperimentId).catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : "Falha ao atualizar experimento.");
-      });
-    }, 3000);
-
-    return () => window.clearInterval(interval);
-  }, [selectedExperimentId, status]);
-
-  async function handleStartExperiment(values: OptimizeFormValues) {
-    setLoading(true);
-    setError(null);
+  const gerarBolao = async () => {
+    setCarregando(true);
+    setErro(null);
+    setResultado(null);
 
     try {
-      const response = await startOptimization(values);
-      await refreshExperiments();
-      setSelectedExperimentId(response.experiment_id);
-      await refreshSelectedExperiment(response.experiment_id);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Falha ao iniciar experimento.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      const response = await fetch("http://localhost:8000/bolao/gerar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          valor_total_do_bolao: parseFloat(valor_total),
+          cotas: parseInt(cotas),
+          valor_unitario_do_bolao: parseFloat(valor_unitario),
+          usar_pool_cache: true,
+        }),
+      });
 
-  const availableGenerations = useMemo(
-    () => visualData?.timeline.map((snapshot) => snapshot.generation) ?? [],
-    [visualData]
-  );
-
-  const activeSnapshot = useMemo<VisualSnapshot | null>(() => {
-    const fromTimeline =
-      visualData?.timeline.find((snapshot) => snapshot.generation === selectedGeneration) ?? null;
-
-    return fromTimeline ?? visualData?.current_visual ?? status?.current_visual ?? null;
-  }, [selectedGeneration, status, visualData]);
-
-  const metrics = useMemo(
-    () => [
-      {
-        label: "Status",
-        value: status?.status ?? "sem experimento",
-        accent: status?.status === "completed" ? "#b7ff7c" : "#ffd166"
-      },
-      {
-        label: "Progresso",
-        value: status ? `${status.progress}%` : "--"
-      },
-      {
-        label: "Melhor fitness",
-        value: formatMetric(status?.best_fitness, 4)
-      },
-      {
-        label: "Melhor ROI",
-        value: formatMetric(status?.best_roi, 4)
-      },
-      {
-        label: "Distância média ao objetivo",
-        value: formatMetric(status?.visual_summary?.avg_distance_to_goal, 4)
-      },
-      {
-        label: "População visível",
-        value: status?.visual_summary?.population_size?.toString() ?? "--"
+      if (!response.ok) {
+        throw new Error("Erro ao gerar bolão");
       }
-    ],
-    [status]
-  );
+
+      const data = await response.json();
+      setResultado(data.saida);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      gerarBolao();
+    }
+  };
 
   return (
-    <main className="app-shell">
-      <section className="hero-banner">
-        <div>
-          <p className="eyebrow">Fase 7</p>
-          <h1>Frontend evolutivo para o otimizador de bolões</h1>
-        </div>
-        <p>
-          A população deixa de ser só tabela e vira organismo visual: cada indivíduo ocupa um
-          espaço, reage à qualidade da solução e mostra quão perto está do alvo evolutivo.
-        </p>
-      </section>
+    <div className="app">
+      <div className="container">
+        {/* Header */}
+        <header className="header">
+          <h1>Gerador de Bolões</h1>
+          <p className="subtitle">Lotofácil</p>
+        </header>
 
-      {error ? <div className="error-banner">{error}</div> : null}
-
-      <section className="main-grid">
-        <ExperimentControlPanel
-          experiments={experiments}
-          selectedExperimentId={selectedExperimentId}
-          loading={loading}
-          onSelectExperiment={setSelectedExperimentId}
-          onStartExperiment={handleStartExperiment}
-        />
-
-        <div className="workspace-column">
-          <MetricsBar items={metrics} />
-
-          <EvolutionScene snapshot={activeSnapshot} goal={visualData?.goal ?? status?.visual_goal ?? null} />
-
-          <EvolutionTimeline
-            generations={availableGenerations}
-            selectedGeneration={selectedGeneration}
-            maxGeneration={status?.current_generation ?? 0}
-            onChange={setSelectedGeneration}
-          />
-
-          <div className="insight-grid">
-            <ConvergencePanel generationStats={result?.generation_stats ?? []} />
-            <ResultSummary result={result} snapshot={activeSnapshot} />
+        {/* Form */}
+        <form className="form" onSubmit={(e) => { e.preventDefault(); gerarBolao(); }}>
+          <div className="form-group">
+            <label htmlFor="valor_total">Valor Total (R$)</label>
+            <input
+              id="valor_total"
+              type="number"
+              value={valor_total}
+              onChange={(e) => setValorTotal(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="1000.00"
+              step="0.01"
+              min="10"
+            />
           </div>
-        </div>
-      </section>
-    </main>
+
+          <div className="form-group">
+            <label htmlFor="cotas">Número de Cotas</label>
+            <input
+              id="cotas"
+              type="number"
+              value={cotas}
+              onChange={(e) => setCotas(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="5"
+              step="1"
+              min="1"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="valor_unitario">Valor por Cota (R$)</label>
+            <input
+              id="valor_unitario"
+              type="number"
+              value={valor_unitario}
+              onChange={(e) => setValorUnitario(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="200.00"
+              step="0.01"
+              min="1"
+            />
+          </div>
+
+          <button type="submit" className="btn-gerar" disabled={carregando}>
+            {carregando ? "Processando..." : "Gerar Bolão"}
+          </button>
+        </form>
+
+        {/* Erro */}
+        {erro && (
+          <div className="erro">
+            <p>❌ {erro}</p>
+          </div>
+        )}
+
+        {/* Resultado */}
+        {resultado && (
+          <div className="resultado">
+            <h2>Resultado</h2>
+            
+            <div className="resultado-grid">
+              <div className="resultado-item j15">
+                <span className="label">Jogos 15 números</span>
+                <span className="valor">{resultado.j15}</span>
+                <span className="preco">R$ {(resultado.j15 * 10).toFixed(2)}</span>
+              </div>
+
+              <div className="resultado-item j16">
+                <span className="label">Jogos 16 números</span>
+                <span className="valor">{resultado.j16}</span>
+                <span className="preco">R$ {(resultado.j16 * 20).toFixed(2)}</span>
+              </div>
+
+              <div className="resultado-item j17">
+                <span className="label">Jogos 17 números</span>
+                <span className="valor">{resultado.j17}</span>
+                <span className="preco">R$ {(resultado.j17 * 30).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="resultado-resumo">
+              <div className="resumo-row">
+                <span>Total de Jogos:</span>
+                <strong>{resultado.total_jogos}</strong>
+              </div>
+              <div className="resumo-row">
+                <span>Custo Total:</span>
+                <strong>R$ {resultado.custo_total.toFixed(2)}</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Estado inicial */}
+        {!resultado && !erro && !carregando && (
+          <div className="info-vazio">
+            <p>Preencha os valores e clique em "Gerar Bolão"</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

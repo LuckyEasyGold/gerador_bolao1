@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
 from backend.database.connection import SessionLocal, init_db
 from backend.database.repositories.contest_repository import ContestRepository
-from backend.api.routes import contests, features, games, simulate, optimize, persistence
+from backend.api.routes import contests, features, games, simulate, optimize, persistence, pool_v2
 from backend.utils.data_importer import LotofacilDataImporter
 from backend.core.lottery_fetcher import LotteryFetcherService
 
@@ -31,6 +31,7 @@ app.include_router(games.router)
 app.include_router(simulate.router)
 app.include_router(optimize.router)
 app.include_router(persistence.router)
+app.include_router(pool_v2.router)
 
 
 async def bootstrap_contests_if_needed() -> dict:
